@@ -23,6 +23,7 @@
   <depend>mbf_costmap_core</depend>
   <depend>mbf_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>nav_core</depend>
   <depend>pluginlib</depend>
   <depend>roscpp</depend>
   <depend>std_msgs</depend>
@@ -37,5 +38,6 @@
 
   <export>
     <mbf_costmap_core plugin="${prefix}/path_tracking_pid_plugin.xml"/>
+    <nav_core plugin="${prefix}/path_tracking_pid_plugin.xml"/>
   </export>
 </package>

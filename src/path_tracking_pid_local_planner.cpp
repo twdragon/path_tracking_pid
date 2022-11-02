@@ -20,8 +20,8 @@
 #include "common.hpp"
 
 // register planner as move_base and move_base plugins
-PLUGINLIB_EXPORT_CLASS(
-  path_tracking_pid::TrackingPidLocalPlanner, mbf_costmap_core::CostmapController)
+PLUGINLIB_EXPORT_CLASS(path_tracking_pid::TrackingPidLocalPlanner, mbf_costmap_core::CostmapController);
+PLUGINLIB_EXPORT_CLASS(path_tracking_pid::TrackingPidLocalPlanner, nav_core::BaseLocalPlanner);
 
 namespace path_tracking_pid
 {
@@ -475,9 +475,56 @@ uint8_t TrackingPidLocalPlanner::projectedCollisionCost(
   return max_projected_step_cost;
 }
 
+bool TrackingPidLocalPlanner::computeVelocityCommands(geometry_msgs::Twist &cmd_vel)
+{
+  if (!initialized_) {
+    ROS_ERROR(
+        "path_tracking_pid has not been initialized, please call initialize() before using this "
+        "planner");
+    active_goal_ = false;
+    //return mbf_msgs::ExePathResult::NOT_INITIALIZED;
+    return false;
+  }
+  // TODO(Cesar): Use provided pose and odom
+  const auto opt_cmd_vel = computeVelocityCommands();
+  if (!opt_cmd_vel) {
+    active_goal_ = false;
+    //return mbf_msgs::ExePathResult::FAILURE;
+    return false;
+  }
+  cmd_vel = *opt_cmd_vel;
+
+  bool moving = std::abs(cmd_vel.linear.x) > VELOCITY_EPS;
+  if (cancel_in_progress_) {
+    if (!moving) {
+      ROS_INFO(
+          "Cancel requested and we now (almost) reached velocity 0: %f", cmd_vel.linear.x);
+      cancel_in_progress_ = false;
+      active_goal_ = false;
+      //return mbf_msgs::ExePathResult::CANCELED;
+      return false;
+    }
+    ROS_INFO_THROTTLE(1.0, "Cancel in progress... remaining x_vel: %f", cmd_vel.linear.x);
+    //return to_underlying(ComputeVelocityCommandsResult::GRACEFULLY_CANCELLING);
+    return false;
+  }
+
+  if (!moving && pid_controller_.getVelMaxObstacle() < VELOCITY_EPS) {
+    active_goal_ = false;
+    //return mbf_msgs::ExePathResult::BLOCKED_PATH;
+    return false;
+  }
+
+  if (isGoalReached()) {
+    active_goal_ = false;
+  }
+  //return mbf_msgs::ExePathResult::SUCCESS;
+  return true;
+}
+
 uint32_t TrackingPidLocalPlanner::computeVelocityCommands(
   const geometry_msgs::PoseStamped & /* pose */, const geometry_msgs::TwistStamped & /* velocity */,
-  geometry_msgs::TwistStamped & cmd_vel, std::string & /* message */)
+  geometry_msgs::TwistStamped & cmd_vel, std::string & /* message */ )
 {
   if (!initialized_) {
     ROS_ERROR(
