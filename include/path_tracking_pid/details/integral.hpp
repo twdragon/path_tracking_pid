@@ -1,6 +1,7 @@
 #pragma once
 
 #include <path_tracking_pid/details/fifo_array.hpp>
+#include <limits>
 
 namespace path_tracking_pid::details
 {
